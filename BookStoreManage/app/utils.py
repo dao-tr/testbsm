@@ -159,15 +159,3 @@ def book_frequency_stats_by_month(month, year=None):
 import requests
 from app import db
 from app.models import Book
-@app.route('/import-from-github')
-def import_github_data():
-    try:
-        import requests
-        raw_url = "https://raw.githubusercontent.com/dao-tr/testbsm/main/path/to/your/file.csv"
-        response = requests.get(raw_url)
-        if response.status_code == 200:
-            return "<h3>Import dữ liệu từ GitHub thành công!</h3>"
-        else:
-            return f"<h3>Không thể tải file. Mã lỗi: {response.status_code}</h3>"
-    except Exception as e:
-        return f"<h3>Lỗi import:</h3><p>{str(e)}</p>"
