@@ -25,5 +25,9 @@ cloudinary.config(
 db = SQLAlchemy(app=app)
 login = LoginManager(app=app)
 
+with app.app_context():
+    import app.models  # Đảm bảo các mô hình đã được nạp
+    db.create_all()
+
 # Bổ sung dòng này ở cuối file để index.py import thành công
 from app import admin, utils, index
