@@ -26,4 +26,4 @@ db = SQLAlchemy(app=app)
 login = LoginManager(app=app)
 
 # Bổ sung dòng này ở cuối file để index.py import thành công
-from app import admin, utils
+from app import admin, utils, index
