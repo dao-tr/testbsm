@@ -248,8 +248,9 @@ def import_github_data():
     except Exception as e:
         return f"<h3>Lỗi import:</h3><p>{str(e)}</p>"
 
-if __name__ == '__main__':
-    app.run(debug=True)
 with app.app_context():
     import app.models
     db.create_all()
+
+if __name__ == '__main__':
+    app.run(debug=True)
