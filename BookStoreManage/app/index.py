@@ -248,28 +248,82 @@ def import_github_data():
             return f"<h3>Không thể tải file. Mã lỗi: {response.status_code}</h3>"
 
         sql_content = response.text
-
-        # Chỉ lọc các câu lệnh INSERT INTO ...; (bỏ qua CREATE TABLE, LOCK TABLES của MySQL)
         insert_statements = re.findall(r'INSERT INTO.*?;', sql_content, flags=re.IGNORECASE | re.DOTALL)
 
         if not insert_statements:
             return "<h3>Không tìm thấy câu lệnh INSERT INTO nào trong file SQL!</h3>"
 
-        executed = 0
-        for stmt in insert_statements:
-            # Chuyển dấu ` của MySQL sang " của PostgreSQL (tránh lỗi từ khóa "user")
-            pg_stmt = stmt.replace('`', '"')
-            # Chuyển kiểu escape dấu nháy đơn \' của MySQL sang '' của PostgreSQL
-            pg_stmt = pg_stmt.replace("\\'", "''")
+        # Hàm tách các dòng VALUES (...) và đổi 1/0 sang TRUE/FALSE cho cột Boolean
+        def fix_boolean_values(table_name, values_str):
+            table = db.metadata.tables.get(table_name)
+            if table is None:
+                return values_str
+            bool_indices = {i for i, col in enumerate(table.columns) if isinstance(col.type, db.Boolean)}
+            if not bool_indices:
+                return values_str
 
-            db.session.execute(text(pg_stmt))
+            tuples, cur_tuple, cur_val = [], [], []
+            in_str, in_tuple = False, False
+            i, n = 0, len(values_str)
+            while i < n:
+                ch = values_str[i]
+                if in_str:
+                    cur_val.append(ch)
+                    if ch == "'":
+                        if i + 1 < n and values_str[i + 1] == "'":
+                            cur_val.append("'")
+                            i += 1
+                        else:
+                            in_str = False
+                else:
+                    if ch == "'":
+                        in_str = True
+                        cur_val.append(ch)
+                    elif ch == '(' and not in_tuple:
+                        in_tuple = True
+                        cur_tuple, cur_val = [], []
+                    elif ch == ',' and in_tuple:
+                        cur_tuple.append(''.join(cur_val).strip())
+                        cur_val = []
+                    elif ch == ')' and in_tuple:
+                        cur_tuple.append(''.join(cur_val).strip())
+                        for idx in bool_indices:
+                            if idx < len(cur_tuple):
+                                if cur_tuple[idx] == '1':
+                                    cur_tuple[idx] = 'TRUE'
+                                elif cur_tuple[idx] == '0':
+                                    cur_tuple[idx] = 'FALSE'
+                        tuples.append('(' + ','.join(cur_tuple) + ')')
+                        in_tuple = False
+                    elif in_tuple:
+                        cur_val.append(ch)
+                i += 1
+            return ','.join(tuples) if tuples else values_str
+
+        # Sắp xếp thứ tự bảng để không bị lỗi khóa ngoại (Foreign Key)
+        table_order = ['rule', 'category', 'user', 'book', 'import_receipt', 'import_receipt_detail', 'receipt', 'receipt_detail']
+        parsed_stmts = []
+        for stmt in insert_statements:
+            pg_stmt = stmt.replace('`', '"').replace("\\'", "''")
+            m = re.match(r'INSERT INTO\s+"([^"]+)"\s+VALUES\s*(.*);', pg_stmt, flags=re.IGNORECASE | re.DOTALL)
+            if m:
+                tbl, vals = m.group(1), m.group(2)
+                order_idx = table_order.index(tbl) if tbl in table_order else 99
+                parsed_stmts.append((order_idx, tbl, vals))
+
+        parsed_stmts.sort(key=lambda x: x[0])
+
+        executed = 0
+        for _, tbl, vals in parsed_stmts:
+            fixed_vals = fix_boolean_values(tbl, vals)
+            final_sql = f'INSERT INTO "{tbl}" VALUES {fixed_vals} ON CONFLICT DO NOTHING;'
+            db.session.execute(text(final_sql))
             executed += 1
 
         db.session.commit()
 
-        # Cập nhật lại bộ đếm ID tự tăng trên PostgreSQL để khi thêm dữ liệu mới không bị trùng ID
-        tables = ['user', 'category', 'book', 'rule', 'receipt', 'receipt_detail', 'import_receipt', 'import_receipt_detail']
-        for tbl in tables:
+        # Cập nhật lại bộ đếm ID tự tăng trên PostgreSQL
+        for tbl in table_order:
             try:
                 db.session.execute(text(
                     f"SELECT setval(pg_get_serial_sequence('\"{tbl}\"', 'id'), COALESCE((SELECT MAX(id) FROM \"{tbl}\"), 1), true);"
@@ -282,7 +336,6 @@ def import_github_data():
     except Exception as e:
         db.session.rollback()
         return f"<h3>Lỗi import:</h3><p>{str(e)}</p>"
-
 with app.app_context():
     import app.models
     db.create_all()
