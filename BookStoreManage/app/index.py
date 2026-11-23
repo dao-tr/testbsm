@@ -27,7 +27,10 @@ def common_response():
 
 @app.route('/')
 def index():
-    return "Trang chủ hệ thống quản lý nhà sách đã hoạt động!"
+    kw = request.args.get('kw')
+    category_id = request.args.get('category_id')
+    books = utils.load_books(kw=kw, category_id=category_id)
+    return render_template('index.html', books=books)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_my_user():
