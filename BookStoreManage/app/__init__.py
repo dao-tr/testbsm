@@ -8,7 +8,7 @@ from urllib.parse import quote
 app = Flask(__name__)
 app.secret_key = 'BOOKSTORE_SECRET_KEY_2026!@#'
 
-# --- Cấu hình Database ---
+# Cấu hình Database
 db_url = os.environ.get('DATABASE_URL')
 if db_url and db_url.startswith('postgres://'):
     db_url = db_url.replace('postgres://', 'postgresql://', 1)
@@ -19,10 +19,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app=app)
 login = LoginManager(app=app)
 
-# Tự động tạo bảng database khi khởi động trên Render
-with app.app_context():
-    import app.models
-    db.create_all()
+cloudinary.config(
+    cloud_name='dsjytfvdz',
+    api_key='841864179767685',
+    api_secret='HSKtnNsA6UtWZvlI-w24ef99UD4'
+)
 
-# --- ĐẶT CÁC IMPORT NÀY Ở DÒNG CUỐI CÙNG CỦA FILE ---
+# IMPORT CÁC MODULE Ở CUỐI CÙNG ĐỂ TRÁNH VÒNG LẶP IMPORT
 from app import admin, utils, index

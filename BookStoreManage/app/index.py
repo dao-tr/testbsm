@@ -235,6 +235,7 @@ def get_book_by_barcode_api(barcode):
         })
     return jsonify({'status': 404, 'err_msg': 'Không tìm thấy!'})
 
-
+with app.app_context():
+    db.create_all()
 if __name__ == '__main__':
     app.run(debug=True)
