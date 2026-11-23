@@ -8,7 +8,6 @@ from urllib.parse import quote
 app = Flask(__name__)
 app.secret_key = 'BOOKSTORE_SECRET_KEY_2026!@#'
 
-# Cấu hình Database
 db_url = os.environ.get('DATABASE_URL')
 if db_url and db_url.startswith('postgres://'):
     db_url = db_url.replace('postgres://', 'postgresql://', 1)
@@ -25,5 +24,5 @@ cloudinary.config(
     api_secret='HSKtnNsA6UtWZvlI-w24ef99UD4'
 )
 
-# IMPORT CÁC MODULE Ở CUỐI CÙNG ĐỂ TRÁNH VÒNG LẶP IMPORT
+# Luôn đặt các import này ở dòng cuối cùng của file
 from app import admin, utils, index
