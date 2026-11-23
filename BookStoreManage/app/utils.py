@@ -158,25 +158,16 @@ def book_frequency_stats_by_month(month, year=None):
 
 import requests
 from app import db
-from app.models import Book # Thay thế bằng model của bạn
-
+from app.models import Book
 @app.route('/import-from-github')
 def import_github_data():
     try:
-        raw_url = "https://github.com/dao-tr/testbsm/blob/main/BookStoreManage/bookstoredb.sql"
-        
+        import requests
+        raw_url = "https://raw.githubusercontent.com/dao-tr/testbsm/main/path/to/your/file.csv"
         response = requests.get(raw_url)
         if response.status_code == 200:
-            lines = response.text.splitlines()
-            for line in lines[1:]:
-                data = line.split(',')
-                # Tiến hành thêm vào database ở đây
-                # book = Book(name=data[0], price=float(data[1]))
-                # db.session.add(book)
-            
-            # db.session.commit()
             return "<h3>Import dữ liệu từ GitHub thành công!</h3>"
         else:
-            return f"<h3>Không thể tải file từ GitHub. Mã lỗi: {response.status_code}</h3>"
+            return f"<h3>Không thể tải file. Mã lỗi: {response.status_code}</h3>"
     except Exception as e:
         return f"<h3>Lỗi import:</h3><p>{str(e)}</p>"
