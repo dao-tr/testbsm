@@ -238,14 +238,38 @@ def get_book_by_barcode_api(barcode):
 @app.route('/import-from-github')
 def import_github_data():
     try:
-        import requests
-        raw_url = "https://raw.githubusercontent.com/dao-tr/testbsm/main/path/to/your/file.csv"
+        import requests, csv, io
+        from app.models import Category, Book
+
+        raw_url = "https://github.com/dao-tr/testbsm/blob/main/BookStoreManage/bookstoredb.sql"
         response = requests.get(raw_url)
-        if response.status_code == 200:
-            return "<h3>Import dữ liệu từ GitHub thành công!</h3>"
-        else:
+
+        if response.status_code != 200:
             return f"<h3>Không thể tải file. Mã lỗi: {response.status_code}</h3>"
+
+        csv_file = io.StringIO(response.text)
+        reader = csv.DictReader(csv_file)
+
+        count = 0
+        for row in reader:
+            if not Book.query.filter_by(barcode=row['barcode']).first():
+                book = Book(
+                    barcode=row['barcode'],
+                    name=row['name'],
+                    author=row.get('author', ''),
+                    price=float(row['price']),
+                    quantity=int(row['quantity']),
+                    category_id=int(row['category_id']),
+                    image=row.get('image', 'https://via.placeholder.com/150'),
+                    active=True
+                )
+                db.session.add(book)
+                count += 1
+
+        db.session.commit()
+        return f"<h3>Import thành công {count} cuốn sách từ GitHub!</h3>"
     except Exception as e:
+        db.session.rollback()
         return f"<h3>Lỗi import:</h3><p>{str(e)}</p>"
 
 with app.app_context():
