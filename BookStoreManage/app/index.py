@@ -238,36 +238,47 @@ def get_book_by_barcode_api(barcode):
 @app.route('/import-from-github')
 def import_github_data():
     try:
-        import requests, csv, io
-        from app.models import Category, Book
+        import re
+        import requests
+        from sqlalchemy import text
 
-        raw_url = "https://github.com/dao-tr/testbsm/blob/main/BookStoreManage/bookstoredb.sql"
+        raw_url = "https://raw.githubusercontent.com/dao-tr/testbsm/main/BookStoreManage/bookstoredb.sql"
         response = requests.get(raw_url)
-
         if response.status_code != 200:
             return f"<h3>Không thể tải file. Mã lỗi: {response.status_code}</h3>"
 
-        csv_file = io.StringIO(response.text)
-        reader = csv.DictReader(csv_file)
+        sql_content = response.text
 
-        count = 0
-        for row in reader:
-            if not Book.query.filter_by(barcode=row['barcode']).first():
-                book = Book(
-                    barcode=row['barcode'],
-                    name=row['name'],
-                    author=row.get('author', ''),
-                    price=float(row['price']),
-                    quantity=int(row['quantity']),
-                    category_id=int(row['category_id']),
-                    image=row.get('image', 'https://via.placeholder.com/150'),
-                    active=True
-                )
-                db.session.add(book)
-                count += 1
+        # Chỉ lọc các câu lệnh INSERT INTO ...; (bỏ qua CREATE TABLE, LOCK TABLES của MySQL)
+        insert_statements = re.findall(r'INSERT INTO.*?;', sql_content, flags=re.IGNORECASE | re.DOTALL)
+
+        if not insert_statements:
+            return "<h3>Không tìm thấy câu lệnh INSERT INTO nào trong file SQL!</h3>"
+
+        executed = 0
+        for stmt in insert_statements:
+            # Chuyển dấu ` của MySQL sang " của PostgreSQL (tránh lỗi từ khóa "user")
+            pg_stmt = stmt.replace('`', '"')
+            # Chuyển kiểu escape dấu nháy đơn \' của MySQL sang '' của PostgreSQL
+            pg_stmt = pg_stmt.replace("\\'", "''")
+
+            db.session.execute(text(pg_stmt))
+            executed += 1
 
         db.session.commit()
-        return f"<h3>Import thành công {count} cuốn sách từ GitHub!</h3>"
+
+        # Cập nhật lại bộ đếm ID tự tăng trên PostgreSQL để khi thêm dữ liệu mới không bị trùng ID
+        tables = ['user', 'category', 'book', 'rule', 'receipt', 'receipt_detail', 'import_receipt', 'import_receipt_detail']
+        for tbl in tables:
+            try:
+                db.session.execute(text(
+                    f"SELECT setval(pg_get_serial_sequence('\"{tbl}\"', 'id'), COALESCE((SELECT MAX(id) FROM \"{tbl}\"), 1), true);"
+                ))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+        return f"<h3>Import dữ liệu từ GitHub thành công! Đã chạy {executed} lệnh INSERT.</h3>"
     except Exception as e:
         db.session.rollback()
         return f"<h3>Lỗi import:</h3><p>{str(e)}</p>"
