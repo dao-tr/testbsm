@@ -26,6 +26,8 @@ def common_response():
 
 
 @app.route('/')
+def home():
+  return 'Chào mừng đến với hệ thống Quản lý Nhà sách!'
 @app.route('/')
 def index():
     kw = request.args.get('kw')
