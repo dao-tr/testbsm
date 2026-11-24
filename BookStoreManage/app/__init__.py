@@ -14,6 +14,7 @@ if db_url and db_url.startswith('postgres://'):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url or 'mysql+pymysql://root:%s@localhost/bookstoredb?charset=utf8mb4' % quote('Tmd.1603')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['PAGE_SIZE'] = 8
 
 db = SQLAlchemy(app=app)
 login = LoginManager(app=app)
