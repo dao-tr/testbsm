@@ -1,4 +1,4 @@
-from app import db
+from app import db, app
 from app.models import User, Category, Book, Receipt, ReceiptDetail, ImportReceipt, ImportReceiptDetail, Rule, OrderStatus, PaymentMethod
 from sqlalchemy import func, extract
 from datetime import datetime, timedelta
@@ -30,7 +30,7 @@ def load_categories():
     return Category.query.all()
 
 
-def load_books(kw=None, category_id=None):
+def load_books(kw=None, category_id=None, page=None):
     query = Book.query.filter(Book.active.__eq__(True))
 
     if category_id:
@@ -44,7 +44,30 @@ def load_books(kw=None, category_id=None):
             Book.barcode.contains(kw)
         ))
 
+    if page:
+        page_size = app.config['PAGE_SIZE']
+        start = (int(page) - 1) * page_size
+        query = query.slice(start, start + page_size)
+
     return query.all()
+
+
+def count_books(kw=None, category_id=None):
+    query = Book.query.filter(Book.active.__eq__(True))
+
+    if category_id:
+        query = query.filter(Book.category_id.__eq__(int(category_id)))
+
+    if kw:
+        kw = kw.strip()
+        query = query.filter(or_(
+            Book.name.contains(kw),
+            Book.author.contains(kw),
+            Book.barcode.contains(kw)
+        ))
+
+    return query.count()
+
 
 
 def get_book_by_barcode(barcode):
