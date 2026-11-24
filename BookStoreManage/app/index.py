@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app import app, db, login, utils, admin
 from app.models import Book, Receipt, ReceiptDetail, PaymentMethod, OrderStatus, User, UserRole
 from datetime import datetime
-import hashlib
+import hashlib, math
 
 
 @login.user_loader
@@ -29,8 +29,18 @@ def common_response():
 def index():
     kw = request.args.get('kw')
     category_id = request.args.get('category_id')
-    books = utils.load_books(kw=kw, category_id=category_id)
-    return render_template('index.html', books=books)
+    page = request.args.get('page', 1, type=int)
+    if page < 1:
+        page = 1
+
+    books = utils.load_books(kw=kw, category_id=category_id, page=page)
+    total = utils.count_books(kw=kw, category_id=category_id)
+    pages = math.ceil(total / app.config['PAGE_SIZE'])
+
+    return render_template('index.html',
+                           books=books,
+                           pages=pages,
+                           current_page=page)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_my_user():
