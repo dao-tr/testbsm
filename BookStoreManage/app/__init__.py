@@ -25,5 +25,5 @@ cloudinary.config(
     api_secret='HSKtnNsA6UtWZvlI-w24ef99UD4'
 )
 
-# Luôn đặt các import này ở dòng cuối cùng của file
+
 from app import admin, utils, index
